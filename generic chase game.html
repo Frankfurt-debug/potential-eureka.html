@@ -1,52 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>2D WASD Movement Game</title>
+  <title>2D Game with Gravity</title>
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
     canvas {
-      background-color: #111;
       display: block;
-      margin: auto;
-      border: 2px solid #fff;
+      background-color: white;
     }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="600" height="400"></canvas>
+<canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Make canvas full screen
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// Load player image
+const playerImg = new Image();
+playerImg.src = "https://raw.githubusercontent.com/Frankfurt-debug/potential-eureka.html/refs/heads/main/images%20and%20stuff/merp%20for%20game.png"; // 🔁 Replace with your image filename
+
 let player = {
-  x: 50,
-  y: 50,
-  size: 30,
-  speed: 3,
-  color: "lime"
+  x: 100,
+  y: 100,
+  width: 50,
+  height: 80,
+  speed: 4,
+  vx: 0,
+  vy: 0,
+  gravity: 0.5,
+  jumpPower: -10,
+  grounded: false
 };
 
 let keys = {};
-
-document.addEventListener("keydown", (e) => {
-  keys[e.key.toLowerCase()] = true;
-});
-
-document.addEventListener("keyup", (e) => {
-  keys[e.key.toLowerCase()] = false;
-});
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 function update() {
-  if (keys["w"]) player.y -= player.speed;
-  if (keys["s"]) player.y += player.speed;
-  if (keys["a"]) player.x -= player.speed;
-  if (keys["d"]) player.x += player.speed;
+  // Horizontal movement
+  if (keys["a"]) player.vx = -player.speed;
+  else if (keys["d"]) player.vx = player.speed;
+  else player.vx = 0;
+
+  // Jumping
+  if (keys["w"] && player.grounded) {
+    player.vy = player.jumpPower;
+    player.grounded = false;
+  }
+
+  // Apply gravity
+  player.vy += player.gravity;
+
+  // Move player
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Floor collision
+  if (player.y + player.height >= canvas.height) {
+    player.y = canvas.height - player.height;
+    player.vy = 0;
+    player.grounded = true;
+  }
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.size, player.size);
+  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 }
 
 function gameLoop() {
@@ -55,7 +88,8 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-gameLoop();
+// Start loop after image loads
+playerImg.onload = gameLoop;
 </script>
 </body>
 </html>
