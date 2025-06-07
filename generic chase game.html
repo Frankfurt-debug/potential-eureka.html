@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>2D Game with Gravity</title>
+  <title>2D Game With Camera & Collision</title>
   <style>
     html, body {
       margin: 0;
@@ -10,7 +10,7 @@
     }
     canvas {
       display: block;
-      background-color: white;
+      background: white;
     }
   </style>
 </head>
@@ -21,7 +21,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Make canvas full screen
+// Resize canvas to full screen
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -29,57 +29,127 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-// Load player image
+// Load assets
 const playerImg = new Image();
-playerImg.src = "https://raw.githubusercontent.com/Frankfurt-debug/potential-eureka.html/refs/heads/main/images%20and%20stuff/merp%20for%20game.png"; // 🔁 Replace with your image filename
+playerImg.src = "player.png"; // Replace with your character
+const mapImg = new Image();
+mapImg.src = "map.png"; // Replace with your map image
+
+// Hidden canvas for map collision
+const mapCanvas = document.createElement("canvas");
+const mapCtx = mapCanvas.getContext("2d");
 
 let player = {
   x: 100,
   y: 100,
-  width: 50,
-  height: 80,
-  speed: 4,
+  width: 40,
+  height: 60,
   vx: 0,
   vy: 0,
+  speed: 3,
   gravity: 0.5,
   jumpPower: -10,
-  grounded: false
+  grounded: false,
+  facingRight: true,
+  frameTick: 0,
 };
 
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-function update() {
-  // Horizontal movement
-  if (keys["a"]) player.vx = -player.speed;
-  else if (keys["d"]) player.vx = player.speed;
-  else player.vx = 0;
+let camera = {
+  x: 0,
+  y: 0
+};
 
-  // Jumping
+// Simple pixel collision detection from map
+function isSolid(x, y) {
+  const pixel = mapCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+  return pixel[0] < 50 && pixel[1] < 50 && pixel[2] < 50 && pixel[3] > 0;
+}
+
+function checkCollision(px, py, w, h) {
+  // Check all 4 corners
+  return (
+    isSolid(px, py) ||
+    isSolid(px + w, py) ||
+    isSolid(px, py + h) ||
+    isSolid(px + w, py + h)
+  );
+}
+
+function update() {
+  let moving = false;
+
+  if (keys["a"]) {
+    player.vx = -player.speed;
+    player.facingRight = false;
+    moving = true;
+  } else if (keys["d"]) {
+    player.vx = player.speed;
+    player.facingRight = true;
+    moving = true;
+  } else {
+    player.vx = 0;
+  }
+
+  // Jump
   if (keys["w"] && player.grounded) {
     player.vy = player.jumpPower;
     player.grounded = false;
   }
 
-  // Apply gravity
+  // Gravity
   player.vy += player.gravity;
 
-  // Move player
-  player.x += player.vx;
-  player.y += player.vy;
+  // Save old position
+  let oldX = player.x;
+  let oldY = player.y;
 
-  // Floor collision
-  if (player.y + player.height >= canvas.height) {
-    player.y = canvas.height - player.height;
+  // Try move horizontally
+  player.x += player.vx;
+  if (checkCollision(player.x, player.y, player.width, player.height)) {
+    player.x = oldX;
+    player.vx = 0;
+  }
+
+  // Try move vertically
+  player.y += player.vy;
+  if (checkCollision(player.x, player.y, player.width, player.height)) {
+    player.y = oldY;
     player.vy = 0;
     player.grounded = true;
+  } else {
+    player.grounded = false;
   }
+
+  // Camera follow with slight lag
+  const targetCamX = player.x + player.width / 2 - canvas.width / 2;
+  const targetCamY = player.y + player.height / 2 - canvas.height / 2;
+  camera.x += (targetCamX - camera.x) * 0.1;
+  camera.y += (targetCamY - camera.y) * 0.1;
+
+  // Animation tick
+  if (moving) player.frameTick++;
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+  // Draw map
+  ctx.drawImage(mapImg, -camera.x, -camera.y);
+
+  // Animate player bounce & tilt when moving
+  let tilt = Math.sin(player.frameTick / 5) * 0.1;
+  let bob = Math.abs(Math.sin(player.frameTick / 5)) * 4;
+
+  ctx.save();
+  ctx.translate(player.x - camera.x + player.width / 2, player.y - camera.y + player.height / 2 - bob);
+  ctx.scale(player.facingRight ? 1 : -1, 1);
+  ctx.rotate(tilt);
+  ctx.drawImage(playerImg, -player.width / 2, -player.height / 2, player.width, player.height);
+  ctx.restore();
 }
 
 function gameLoop() {
@@ -88,8 +158,13 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Start loop after image loads
-playerImg.onload = gameLoop;
+// Once map is loaded, draw it to hidden canvas
+mapImg.onload = () => {
+  mapCanvas.width = mapImg.width;
+  mapCanvas.height = mapImg.height;
+  mapCtx.drawImage(mapImg, 0, 0);
+  playerImg.onload = gameLoop;
+};
 </script>
 </body>
 </html>
