@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>2D Game With Camera & Collision</title>
+  <title>Tile-Based 2D Game</title>
   <style>
     html, body {
       margin: 0;
@@ -21,7 +21,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Resize canvas to full screen
+// Fullscreen canvas
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -29,15 +29,24 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-// Load assets
-const playerImg = new Image();
-playerImg.src = "player.png"; // Replace with your character
-const mapImg = new Image();
-mapImg.src = "map.png"; // Replace with your map image
+// Tile settings
+const TILE_SIZE = 64;
 
-// Hidden canvas for map collision
-const mapCanvas = document.createElement("canvas");
-const mapCtx = mapCanvas.getContext("2d");
+// Example map (1 = wall, 0 = empty)
+const map = [
+  [1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+// Load player image
+const playerImg = new Image();
+playerImg.src = "https://via.placeholder.com/40x60.png?text=Player"; // Replace later
 
 let player = {
   x: 100,
@@ -51,48 +60,44 @@ let player = {
   jumpPower: -10,
   grounded: false,
   facingRight: true,
-  frameTick: 0,
+  frameTick: 0
 };
 
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-let camera = {
-  x: 0,
-  y: 0
-};
+let camera = { x: 0, y: 0 };
 
-// Simple pixel collision detection from map
-function isSolid(x, y) {
-  const pixel = mapCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-  return pixel[0] < 50 && pixel[1] < 50 && pixel[2] < 50 && pixel[3] > 0;
+// --- TILE COLLISION ---
+function getTileAtPixel(x, y) {
+  let col = Math.floor(x / TILE_SIZE);
+  let row = Math.floor(y / TILE_SIZE);
+  if (row < 0 || col < 0 || row >= map.length || col >= map[0].length) return 1; // outside map = solid
+  return map[row][col];
+}
+
+function isSolidAtPixel(x, y) {
+  return getTileAtPixel(x, y) === 1;
 }
 
 function checkCollision(px, py, w, h) {
-  // Check all 4 corners
   return (
-    isSolid(px, py) ||
-    isSolid(px + w, py) ||
-    isSolid(px, py + h) ||
-    isSolid(px + w, py + h)
+    isSolidAtPixel(px, py) ||
+    isSolidAtPixel(px + w, py) ||
+    isSolidAtPixel(px, py + h) ||
+    isSolidAtPixel(px + w, py + h)
   );
 }
 
+// --- UPDATE ---
 function update() {
   let moving = false;
 
-  if (keys["a"]) {
-    player.vx = -player.speed;
-    player.facingRight = false;
-    moving = true;
-  } else if (keys["d"]) {
-    player.vx = player.speed;
-    player.facingRight = true;
-    moving = true;
-  } else {
-    player.vx = 0;
-  }
+  // Left/right movement
+  if (keys["a"]) { player.vx = -player.speed; player.facingRight = false; moving = true; }
+  else if (keys["d"]) { player.vx = player.speed; player.facingRight = true; moving = true; }
+  else player.vx = 0;
 
   // Jump
   if (keys["w"] && player.grounded) {
@@ -104,17 +109,17 @@ function update() {
   player.vy += player.gravity;
 
   // Save old position
-  let oldX = player.x;
-  let oldY = player.y;
+  const oldX = player.x;
+  const oldY = player.y;
 
-  // Try move horizontally
+  // Move horizontally
   player.x += player.vx;
   if (checkCollision(player.x, player.y, player.width, player.height)) {
     player.x = oldX;
     player.vx = 0;
   }
 
-  // Try move vertically
+  // Move vertically
   player.y += player.vy;
   if (checkCollision(player.x, player.y, player.width, player.height)) {
     player.y = oldY;
@@ -124,23 +129,30 @@ function update() {
     player.grounded = false;
   }
 
-  // Camera follow with slight lag
+  // Smooth camera follow
   const targetCamX = player.x + player.width / 2 - canvas.width / 2;
   const targetCamY = player.y + player.height / 2 - canvas.height / 2;
   camera.x += (targetCamX - camera.x) * 0.1;
   camera.y += (targetCamY - camera.y) * 0.1;
 
-  // Animation tick
   if (moving) player.frameTick++;
 }
 
+// --- DRAW ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw map
-  ctx.drawImage(mapImg, -camera.x, -camera.y);
+  // Draw tiles
+  for (let row = 0; row < map.length; row++) {
+    for (let col = 0; col < map[0].length; col++) {
+      if (map[row][col] === 1) {
+        ctx.fillStyle = "black";
+        ctx.fillRect(col * TILE_SIZE - camera.x, row * TILE_SIZE - camera.y, TILE_SIZE, TILE_SIZE);
+      }
+    }
+  }
 
-  // Animate player bounce & tilt when moving
+  // Player tilt & bounce animation
   let tilt = Math.sin(player.frameTick / 5) * 0.1;
   let bob = Math.abs(Math.sin(player.frameTick / 5)) * 4;
 
@@ -158,13 +170,7 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Once map is loaded, draw it to hidden canvas
-mapImg.onload = () => {
-  mapCanvas.width = mapImg.width;
-  mapCanvas.height = mapImg.height;
-  mapCtx.drawImage(mapImg, 0, 0);
-  playerImg.onload = gameLoop;
-};
+playerImg.onload = gameLoop;
 </script>
 </body>
 </html>
