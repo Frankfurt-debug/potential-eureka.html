@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Hub</title>
+  <title>Frankfurt hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Quicksand', sans-serif;
       margin: 0;
       padding: 40px;
       display: flex;
@@ -16,34 +21,49 @@
       background: rgba(0, 0, 0, 0.6);
       position: relative;
       z-index: 1;
+      min-height: 100vh;
     }
 
-    /* Background video styling */
+    /* Background video */
     video.bg-video {
       position: fixed;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
+      z-index: -2;
+    }
+
+    /* Dark overlay on video */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.55);
       z-index: -1;
+      pointer-events: none;
+      transition: background 0.2s linear;
     }
 
     h1 {
       margin-bottom: 30px;
-      text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
+      font-weight: 700;
     }
 
     h2 {
       margin-bottom: 20px;
       text-align: center;
+      font-weight: 600;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
-      width: 100%;
       max-width: 1000px;
+      width: 100%;
+      justify-items: center;
     }
 
     .card {
@@ -53,6 +73,7 @@
       text-align: center;
       transition: transform 0.2s, background 0.3s;
       cursor: pointer;
+      width: 220px;
     }
 
     .card:hover {
@@ -69,6 +90,7 @@
       border-radius: 8px;
       cursor: pointer;
       transition: background 0.3s;
+      font-family: 'Quicksand', sans-serif;
     }
 
     button:hover {
@@ -78,6 +100,15 @@
     .section {
       margin-bottom: 50px;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
     }
   </style>
 </head>
@@ -85,14 +116,15 @@
 
   <!-- Background video -->
   <video class="bg-video" autoplay muted loop>
-    <source src="https://cdn.coverr.co/videos/coverr-clouds-over-the-mountains-3941/1080p.mp4" type="video/mp4">
+    <source src="https://github.com/Frankfurt-debug/potential-eureka.html/raw/refs/heads/main/images%20and%20stuff/audiocleaner_20250812_204943_file.mp4" type="video/mp4">
   </video>
+  <div class="overlay"></div>
 
-  <h1>Frankfurt hub</h1>
+  <h1>Frankfurt Hub</h1>
 
   <!-- Websites Section -->
   <div class="section">
-    <h2>Websites</h2>
+    <h2>Useful Websites</h2>
     <div class="grid">
       <div class="card">
         <h3>Google</h3>
@@ -114,7 +146,7 @@
 
   <!-- Games Section -->
   <div class="section">
-    <h2>Frankfurt games</h2>
+    <h2>Frankfurt Games</h2>
     <div class="grid">
       <div class="card">
         <h3>Frankfurt Jumper</h3>
@@ -133,6 +165,18 @@
       </div>
     </div>
   </div>
+
+  <script>
+    const overlay = document.querySelector('.overlay');
+
+    window.addEventListener('scroll', () => {
+      const maxScroll = document.body.scrollHeight - window.innerHeight;
+      const scrollRatio = window.scrollY / maxScroll;
+      // Base darkness 0.55 → max 0.85
+      const darkness = 0.55 + scrollRatio * 0.3;
+      overlay.style.background = `rgba(0, 0, 0, ${darkness.toFixed(2)})`;
+    });
+  </script>
 
 </body>
 </html>
