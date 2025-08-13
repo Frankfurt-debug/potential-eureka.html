@@ -2,111 +2,167 @@
 <html>
 <head>
   <title>Tile-Based 2D Game</title>
+  <meta charset="utf-8" />
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      background: white;
-    }
+    html, body { margin: 0; padding: 0; overflow: hidden; }
+    canvas { display: block; background: white; }
   </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
+
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
 
-let keys = {};
-let player = {
-    x: 200,
-    y: 300,
-    width: 50,
-    height: 70,
-    vx: 0,
-    vy: 0,
-    speed: 5,
-    gravity: 0.5,
-    jumpPower: -10,
-    onGround: false,
-    tilt: 0, // current rotation in radians
-    targetTilt: 0 // desired rotation
+// ----- CONFIG -----
+const GROUND_HEIGHT = 50;          // visible ground thickness
+const GRAVITY = 0.5;
+const JUMP_POWER = -10;
+const MOVE_SPEED = 5;
+const TILT_RUN = 0.12;             // tilt magnitude while running (radians)
+const TILT_UP = -0.18;             // tilt when going up
+const TILT_DOWN = 0.22;            // tilt when falling
+const TILT_LERP = 0.12;            // how fast we ease toward target tilt
+const FLIP_IMAGE = true;           // flip sprite when moving left
+
+// ----- RESIZE -----
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ----- INPUT -----
+const keys = {};
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+// ----- PLAYER -----
+const playerImg = new Image();
+// Replace with your file; fallback placeholder helps during testing:
+playerImg.src = "player.png";
+playerImg.onerror = () => {
+  playerImg.src = "https://via.placeholder.com/50x70.png?text=Player";
 };
 
-const playerImg = new Image();
-playerImg.src = "player.png"; // your rectangle PNG
+const player = {
+  x: 200,
+  y: 300,
+  w: 50,
+  h: 70,
+  vx: 0,
+  vy: 0,
+  onGround: false,
+  tilt: 0,        // current rotation (radians)
+  targetTilt: 0,  // desired rotation
+  facingRight: true,
+  t: 0            // time accumulator for optional bob
+};
 
-window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
 
 function update() {
-    // Horizontal movement
-    if (keys["a"]) {
-        player.vx = -player.speed;
-        player.targetTilt = -0.1; // slight left tilt
-    } else if (keys["d"]) {
-        player.vx = player.speed;
-        player.targetTilt = 0.1; // slight right tilt
-    } else {
-        player.vx = 0;
-        player.targetTilt = 0; // return upright
-    }
+  // Horizontal movement
+  if (keys['a']) {
+    player.vx = -MOVE_SPEED;
+    player.facingRight = false;
+  } else if (keys['d']) {
+    player.vx = MOVE_SPEED;
+    player.facingRight = true;
+  } else {
+    player.vx = 0;
+  }
 
-    // Jump
-    if (keys["w"] && player.onGround) {
-        player.vy = player.jumpPower;
-        player.onGround = false;
-    }
+  // Jump
+  if (keys['w'] && player.onGround) {
+    player.vy = JUMP_POWER;
+    player.onGround = false;
+  }
 
-    // Apply gravity
-    player.vy += player.gravity;
+  // Gravity
+  player.vy += GRAVITY;
 
-    // Update position
-    player.x += player.vx;
-    player.y += player.vy;
+  // Integrate
+  player.x += player.vx;
+  player.y += player.vy;
 
-    // Ground collision
-    if (player.y + player.height >= canvas.height - 50) {
-        player.y = canvas.height - 50 - player.height;
-        player.vy = 0;
-        player.onGround = true;
-    }
+  // Simple ground collision
+  const floorY = canvas.height - GROUND_HEIGHT - player.h;
+  if (player.y >= floorY) {
+    player.y = floorY;
+    player.vy = 0;
+    player.onGround = true;
+  } else {
+    player.onGround = false;
+  }
 
-    // Jump/fall tilt adjustment
-    if (!player.onGround) {
-        if (player.vy < 0) player.targetTilt = -0.15; // tilt up
-        else if (player.vy > 0) player.targetTilt = 0.15; // tilt down
-    }
+  // ---- Tilt logic ----
+  // Base run tilt when on ground & moving; else return upright
+  let runTilt = 0;
+  if (player.onGround && Math.abs(player.vx) > 0.01) {
+    runTilt = (player.vx > 0 ? TILT_RUN : -TILT_RUN);
+  }
 
-    // Smooth tilt
-    player.tilt += (player.targetTilt - player.tilt) * 0.1;
+  // Air tilt overrides while in air: up when vy < 0, down when vy > 0
+  let airTilt = 0;
+  if (!player.onGround) {
+    // Map vy to range between TILT_UP and TILT_DOWN, clamp
+    // vy is negative going up, positive going down
+    const vyNorm = clamp((player.vy - (-15)) / (20 - (-15)), 0, 1); // rough normalization
+    airTilt = TILT_UP * (1 - vyNorm) + TILT_DOWN * vyNorm;
+  }
+
+  // Choose target tilt
+  player.targetTilt = player.onGround ? runTilt : airTilt;
+
+  // Ease toward target
+  player.tilt += (player.targetTilt - player.tilt) * TILT_LERP;
+
+  // Time (for optional bob if you want it later)
+  if (player.onGround && Math.abs(player.vx) > 0.01) player.t += 0.2;
+  else player.t *= 0.9;
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.save();
-    ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
-    ctx.rotate(player.tilt);
-    ctx.drawImage(playerImg, -player.width / 2, -player.height / 2, player.width, player.height);
-    ctx.restore();
+  // Ground
+  ctx.fillStyle = "#e6e6e6";
+  ctx.fillRect(0, canvas.height - GROUND_HEIGHT, canvas.width, GROUND_HEIGHT);
+
+  // Optional subtle bob when running
+  const bob = (player.onGround && Math.abs(player.vx) > 0.01) ? Math.abs(Math.sin(player.t)) * 3 : 0;
+
+  ctx.save();
+  // Move to player center (with bob)
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2 - bob;
+  ctx.translate(cx, cy);
+
+  // Flip if moving left
+  if (FLIP_IMAGE && !player.facingRight) {
+    ctx.scale(-1, 1);
+  }
+
+  // Rotate by tilt
+  ctx.rotate(player.tilt);
+
+  // Draw sprite centered
+  ctx.drawImage(playerImg, -player.w / 2, -player.h / 2, player.w, player.h);
+  ctx.restore();
 }
 
-function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
 }
 
-gameLoop();
+// Start only after image loads to avoid blank frame timing issues
+playerImg.onload = () => requestAnimationFrame(loop);
 </script>
-
 </body>
 </html>
