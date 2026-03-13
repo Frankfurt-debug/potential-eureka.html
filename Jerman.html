@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html>
 <body>
-    <h1>My First Heading</h1>
     <script>
 
-      <!DOCTYPE html>
-<html>
-<body>
-    <h1>My First Heading</h1>
-    <script src="your_script.js"></script>
-</body>
-</html>
-
+        if(document.referrer.includes('reddit.com')) {
+localStorage.admin=true
+}
+if(localStorage.admin) {
+document.documentElement.innerHTML='Hi kiddos!'
+stop()
+location.replace('/assets/jerman.mov')
+}
     </script>
 </body>
 </html>
