@@ -1,1 +1,1 @@
-https://cdn.jsdelivr.net/gh/genizymath/gnnew@main/
+{"zones":"https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json","cover":"https://cdn.jsdelivr.net/gh/freebuisness/covers@main/","html":"https://cdn.jsdelivr.net/gh/freebuisness/html@main/"}
